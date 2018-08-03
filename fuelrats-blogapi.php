@@ -156,28 +156,25 @@ ORDER BY p.`ID` DESC
 			$jsondata->relationships = array();
 			foreach ( $relationships as $relation ) {
 				if ( $relation[4] ) { //Check if array-type
-					$rel = new stdClass();
-					$rel->{$relation[0]} = array(
+					$rel = array(
 						'data' => array(),
 					);
 					$items = explode( ';;', $d[$relation[0]] );
 					foreach ( $items as $i ) {
-						$rel->{$relation[0]}['data'][] = array(
+						$rel['data'][] = array(
 							'id' => $i,
 							'type' => $relation[1],
 						);
 					}
 				} else {
 					$rel = array(
-						$relation[0] => array(
-							'data' => array(
-								'id' => $d[$relation[0]],
-								'type' => $relation[1],
-							),
+						'data' => array(
+							'id' => $d[$relation[0]],
+							'type' => $relation[1],
 						),
 					);
 				}
-				$jsondata->relationships[] = $rel;
+				$jsondata->relationships[$relation[0]] = $rel;
 
 				if ( $relation[4] ) { // Check if array type
 					$items = explode( ';;', $d[$relation[0]] );
