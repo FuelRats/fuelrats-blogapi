@@ -1,5 +1,5 @@
 <?php
-header( 'Content-type: application/json' );
+header( 'Content-type: application/vnd.api+json' );
 /**
 * Plugin Name: Fuel Rats - Blog API Endpoint
 * Description: Just another plugin
