@@ -174,7 +174,7 @@ ORDER BY p.`ID` DESC
 						),
 					);
 				}
-				$jsondata->relationships[$relation[0]] = $rel;
+				$jsondata->relationships[$relation[1]] = $rel;
 
 				if ( $relation[4] ) { // Check if array type
 					$items = explode( ';;', $d[$relation[0]] );
