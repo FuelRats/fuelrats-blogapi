@@ -114,7 +114,7 @@ ORDER BY p.`ID` DESC
 			array(
 				array(
 					'author',
-					'people',
+					'authors',
 					'author_id',
 					array(
 						'author_name' => 'name',
