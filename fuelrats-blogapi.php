@@ -41,7 +41,8 @@ class FuelRatsEndpoint {
 
 
 		$page = 1;
-		$pageSize = 10;
+		$pageSize = 25;
+
 		if ( ! empty( $data['page'] ) && intval( $data['page'] ) != 0 ) {
 			$page = intval( $data['page'] );
 		}
