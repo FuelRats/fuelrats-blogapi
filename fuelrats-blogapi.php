@@ -51,6 +51,8 @@ class FuelRatsEndpoint {
 			$pageSize = intval( $data['limit'] );
 		}
 
+		$pageOffset = ( $page - 1 ) * $pageSize;
+
 		$filterSql = '';
 
 		if ( ! empty( $data['category'] ) && intval( $data['category'] ) != 0 ) {
@@ -69,7 +71,7 @@ class FuelRatsEndpoint {
 			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $data['slug'] );
 		}
 
-		$pageSql = ' LIMIT ' . ( ( $page - 1 ) * $pageSize ) . ', ' . $pageSize;
+		$pageSql = ' LIMIT ' . $pageOffset . ', ' . $pageSize;
 
 		$sql = "SELECT COUNT(ID) FROM $wpdb->posts WHERE `post_type` = 'post' AND `post_status` = 'publish'";
 		$sql = "SELECT COUNT(DISTINCT p.ID)
