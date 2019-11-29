@@ -103,10 +103,9 @@ GROUP BY p.ID
 ORDER BY p.`ID` DESC
 {$pageSql}
 ";
-		$data = $wpdb->get_results( $sql, ARRAY_A );
+		$postData = $wpdb->get_results( $sql, ARRAY_A );
 		return $this->get_jsonapi_format(
-			$data,
-			$total_posts,
+			$postData,
 			'posts',
 			array(
 				'date_gmt',
@@ -134,15 +133,19 @@ ORDER BY p.`ID` DESC
 					),
 					true,
 				),
+			),
+			array(
+				'count' => count($postData),
+				'limit' => $pageSize,
+				'offset' => $pageOffset,
+				'total' => intval($total_posts),
 			)
 		);
 	}
 
-	private function get_jsonapi_format( $data, $count, $type, $attributes = array(), $relationships = array() ) {
+	private function get_jsonapi_format( $data, $type, $attributes = array(), $relationships = array(), $meta = array() ) {
 		$jsonApiResponse = new stdClass();
-		$jsonApiResponse->meta = array(
-			'total-pages' => ceil( round( $count / 10, 4 ) )
-		);
+		$jsonApiResponse->meta = $meta;
 		$jsonApiResponse->data = array();
 
 		$uniqueIncludes = array();
