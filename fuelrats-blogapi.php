@@ -53,7 +53,7 @@ class FuelRatsEndpoint {
 
 		$pageOffset = ( $page - 1 ) * $pageSize;
 
-		$filterSql = '';
+		$filterSql = "WHERE p.post_type = 'post' AND p.post_status = 'publish' AND p.post_password = ''";
 
 		if ( ! empty( $queryData['category'] ) && intval( $queryData['category'] ) != 0 ) {
 			$filterSql .= ' AND t.term_id = ' . intval( $queryData['category'] );
@@ -80,9 +80,9 @@ INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
 LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
 LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
 LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-WHERE p.`post_type` = 'post' AND p.`post_status` = 'publish'
 {$filterSql}
 ";
+
 		$total_posts = $wpdb->get_var( $sql );
 
 $sql = "
@@ -97,13 +97,14 @@ INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
 LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
 LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
 LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-WHERE p.`post_type` = 'post' AND p.`post_status` = 'publish'
 {$filterSql}
 GROUP BY p.ID
 ORDER BY p.`ID` DESC
 {$pageSql}
 ";
+
 		$postData = $wpdb->get_results( $sql, ARRAY_A );
+
 		return $this->get_jsonapi_format(
 			$postData,
 			'posts',
