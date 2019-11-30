@@ -22,10 +22,13 @@ function get_custom_excerpt( $content, $lengthLimit ) {
 	$shortContent = trim(preg_replace('/\\n/', ' ', strip_tags( $content )));
 
 	if (strlen($shortContent) > $lengthLimit) {
-		$breakpoint = strpos($shortContent, ".", $lengthLimit);
-		if($breakpoint !== false && $breakpoint < strlen($shortContent) - 1) {
-			$shortContent = substr($shortContent, 0, $breakpoint + 1) . ' [...]';
-		}
+		$breakpoint = min(array_filter(array(
+			strpos($shortContent, ".", $lengthLimit),
+			strpos($shortContent, "!", $lengthLimit),
+			strpos($shortContent, "?", $lengthLimit),
+		)));
+
+		$shortContent = substr($shortContent, 0, $breakpoint + 1) . ' [...]';
 	}
 
 	return $shortContent;
@@ -55,17 +58,17 @@ class FuelRatsEndpoint {
 
 
 		$page = 1;
-		$pageSize = 25;
+		$limit = 25;
 
 		if ( ! empty( $queryData['page'] ) && intval( $queryData['page'] ) != 0 ) {
 			$page = intval( $queryData['page'] );
 		}
 
 		if ( ! empty( $queryData['limit'] ) && intval( $queryData['limit'] ) != 0 ) {
-			$pageSize = intval( $queryData['limit'] );
+			$limit = intval( $queryData['limit'] );
 		}
 
-		$pageOffset = ( $page - 1 ) * $pageSize;
+		$offset = ( $page - 1 ) * $limit;
 
 		$filterSql = "WHERE p.post_type = 'post' AND p.post_status = 'publish' AND p.post_password = ''";
 
@@ -85,7 +88,7 @@ class FuelRatsEndpoint {
 			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $queryData['slug'] );
 		}
 
-		$pageSql = ' LIMIT ' . $pageOffset . ', ' . $pageSize;
+		$pageSql = ' LIMIT ' . $offset . ', ' . $limit;
 
 		$sql = "SELECT
 			COUNT(DISTINCT p.ID)
@@ -98,11 +101,20 @@ class FuelRatsEndpoint {
 			{$filterSql}
 			";
 
-		$total_posts = $wpdb->get_var( $sql );
+		$total = intval($wpdb->get_var( $sql ));
 
 		$sql = "SELECT
-			p.ID AS id, p.post_author, p.post_content, p.post_date_gmt, p.post_excerpt, p.post_name, p.post_status, p.post_title, p.post_modified_gmt,
-			u.ID AS author_id, u.display_name AS author_name,
+			p.ID AS id,
+			p.post_author,
+			p.post_content,
+			p.post_date_gmt,
+			p.post_excerpt,
+			p.post_name,
+			p.post_status,
+			p.post_title,
+			p.post_modified_gmt,
+			u.ID AS author_id,
+			u.display_name AS author_name,
 			GROUP_CONCAT(t.term_id SEPARATOR ';;') category,
 			GROUP_CONCAT(t.term_id SEPARATOR ';;') category_ids,
 			GROUP_CONCAT(t.name SEPARATOR ';;') category_names,
@@ -131,7 +143,7 @@ class FuelRatsEndpoint {
 					'updatedAt' => $post['post_modified_gmt'],
 					'title' => $post['post_title'],
 					'content' => wpautop( $post['post_content'] ),
-					'excerpt' => $post['post_excerpt'] === "" ? get_custom_excerpt( $post['post_content'], 300 ) : $post['post_excerpt'],
+					'excerpt' => $post['post_excerpt'] ?: get_custom_excerpt( $post['post_content'], 300 ),
 				);
 			},
 			array(
@@ -157,9 +169,9 @@ class FuelRatsEndpoint {
 			),
 			array(
 				'count' => count($postData),
-				'limit' => $pageSize,
-				'offset' => $pageOffset,
-				'total' => intval($total_posts),
+				'limit' => $limit,
+				'offset' => $offset,
+				'total' => $total,
 			)
 		);
 	}
