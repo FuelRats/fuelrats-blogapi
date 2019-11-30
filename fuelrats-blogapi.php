@@ -17,6 +17,20 @@ function write_debug( $object, $as_json = true ) {
 	var_dump( $object );
 	echo '<xmp>' . ob_get_clean() . '</xmp>';
 }
+
+function get_custom_excerpt( $content, $lengthLimit ) {
+	$shortContent = trim(preg_replace('/\\n/', ' ', strip_tags( $content )));
+
+	if (strlen($shortContent) > $lengthLimit) {
+		$breakpoint = strpos($shortContent, ".", $lengthLimit);
+		if($breakpoint !== false && $breakpoint < strlen($shortContent) - 1) {
+			$shortContent = substr($shortContent, 0, $breakpoint + 1) . ' [...]';
+		}
+	}
+
+	return $shortContent;
+}
+
 define( 'SHORTINIT', true );
 require_once '../../../wp-load.php';
 
@@ -73,35 +87,37 @@ class FuelRatsEndpoint {
 
 		$pageSql = ' LIMIT ' . $pageOffset . ', ' . $pageSize;
 
-		$sql = "SELECT COUNT(ID) FROM $wpdb->posts WHERE `post_type` = 'post' AND `post_status` = 'publish'";
-		$sql = "SELECT COUNT(DISTINCT p.ID)
-FROM {$wpdb->posts} p
-INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
-LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
-LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
-LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-{$filterSql}
-";
+		$sql = "SELECT
+			COUNT(DISTINCT p.ID)
+			FROM
+				{$wpdb->posts} p
+				INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
+				LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
+				LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
+				LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+			{$filterSql}
+			";
 
 		$total_posts = $wpdb->get_var( $sql );
 
-$sql = "
-SELECT p.ID AS id, p.post_author AS author, p.post_date_gmt as date_gmt, p.post_title as title, p.post_content as `content`, p.post_name as slug,
-u.ID AS author_id, u.display_name AS author_name,
-GROUP_CONCAT(t.term_id SEPARATOR ';;') category,
-GROUP_CONCAT(t.term_id SEPARATOR ';;') category_ids,
-GROUP_CONCAT(t.name SEPARATOR ';;') category_names,
-GROUP_CONCAT(tt.description SEPARATOR ';;') category_descriptions
-FROM {$wpdb->posts} p
-INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
-LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
-LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
-LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-{$filterSql}
-GROUP BY p.ID
+		$sql = "SELECT
+			p.ID AS id, p.post_author, p.post_content, p.post_date_gmt, p.post_excerpt, p.post_name, p.post_status, p.post_title, p.post_modified_gmt,
+			u.ID AS author_id, u.display_name AS author_name,
+			GROUP_CONCAT(t.term_id SEPARATOR ';;') category,
+			GROUP_CONCAT(t.term_id SEPARATOR ';;') category_ids,
+			GROUP_CONCAT(t.name SEPARATOR ';;') category_names,
+			GROUP_CONCAT(tt.description SEPARATOR ';;') category_descriptions
+		FROM
+			{$wpdb->posts} p
+			INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
+			LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
+			LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
+			LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+		{$filterSql}
+		GROUP BY p.ID
 ORDER BY p.`ID` DESC
-{$pageSql}
-";
+		{$pageSql}
+		";
 
 		$postData = $wpdb->get_results( $sql, ARRAY_A );
 
@@ -115,8 +131,7 @@ ORDER BY p.`ID` DESC
 				'slug',
 			),
 			array(
-				array(
-					'author',
+					'post_author',
 					'authors',
 					'author_id',
 					array(
