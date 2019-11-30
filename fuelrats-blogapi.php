@@ -36,39 +36,39 @@ class FuelRatsEndpoint {
 	}
 */
 
-	public function get_posts( $data ) {
+	public function get_posts( $queryData ) {
 		global $wpdb;
 
 
 		$page = 1;
 		$pageSize = 25;
 
-		if ( ! empty( $data['page'] ) && intval( $data['page'] ) != 0 ) {
-			$page = intval( $data['page'] );
+		if ( ! empty( $queryData['page'] ) && intval( $queryData['page'] ) != 0 ) {
+			$page = intval( $queryData['page'] );
 		}
 
-		if ( ! empty( $data['limit'] ) && intval( $data['limit'] ) != 0 ) {
-			$pageSize = intval( $data['limit'] );
+		if ( ! empty( $queryData['limit'] ) && intval( $queryData['limit'] ) != 0 ) {
+			$pageSize = intval( $queryData['limit'] );
 		}
 
 		$pageOffset = ( $page - 1 ) * $pageSize;
 
 		$filterSql = '';
 
-		if ( ! empty( $data['category'] ) && intval( $data['category'] ) != 0 ) {
-			$filterSql .= ' AND t.term_id = ' . intval( $data['category'] );
+		if ( ! empty( $queryData['category'] ) && intval( $queryData['category'] ) != 0 ) {
+			$filterSql .= ' AND t.term_id = ' . intval( $queryData['category'] );
 		}
 
-		if ( ! empty( $data['author'] ) && intval( $data['author'] ) != 0 ) {
-			$filterSql .= ' AND p.post_author = ' . intval( $data['author'] );
+		if ( ! empty( $queryData['author'] ) && intval( $queryData['author'] ) != 0 ) {
+			$filterSql .= ' AND p.post_author = ' . intval( $queryData['author'] );
 		}
 
-		if ( ! empty( $data['id'] ) && intval( $data['id'] ) != 0 ) {
-			$filterSql .= ' AND p.ID = ' . intval( $data['id'] );
+		if ( ! empty( $queryData['id'] ) && intval( $queryData['id'] ) != 0 ) {
+			$filterSql .= ' AND p.ID = ' . intval( $queryData['id'] );
 		}
 
-		if ( ! empty( $data['slug'] ) ) {
-			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $data['slug'] );
+		if ( ! empty( $queryData['slug'] ) ) {
+			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $queryData['slug'] );
 		}
 
 		$pageSql = ' LIMIT ' . $pageOffset . ', ' . $pageSize;
