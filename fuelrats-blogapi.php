@@ -124,13 +124,18 @@ ORDER BY p.`ID` DESC
 		return $this->get_jsonapi_format(
 			$postData,
 			'posts',
+			function($post){
+				return array(
+					'slug' => $post['post_name'],
+					'createdAt' => $post['post_date_gmt'],
+					'updatedAt' => $post['post_modified_gmt'],
+					'title' => $post['post_title'],
+					'content' => wpautop( $post['post_content'] ),
+					'excerpt' => $post['post_excerpt'] === "" ? get_custom_excerpt( $post['post_content'], 300 ) : $post['post_excerpt'],
+				);
+			},
 			array(
-				'date_gmt',
-				'title',
-				'content',
-				'slug',
-			),
-			array(
+				array(
 					'post_author',
 					'authors',
 					'author_id',
@@ -159,7 +164,7 @@ ORDER BY p.`ID` DESC
 		);
 	}
 
-	private function get_jsonapi_format( $data, $type, $attributes = array(), $relationships = array(), $meta = array() ) {
+	private function get_jsonapi_format( $data, $type, $get_attributes, $relationships = array(), $meta = array() ) {
 		$jsonApiResponse = new stdClass();
 		$jsonApiResponse->meta = $meta;
 		$jsonApiResponse->data = array();
@@ -170,10 +175,7 @@ ORDER BY p.`ID` DESC
 			$jsondata = new stdClass();
 			$jsondata->type = $type;
 			$jsondata->id = $d['id'];
-			$jsondata->attributes = array();
-			foreach ( $attributes as $attr ) {
-				$jsondata->attributes[$attr] = $d[$attr];
-			}
+			$jsondata->attributes = $get_attributes($d);
 
 			$jsondata->relationships = array();
 			foreach ( $relationships as $relation ) {
