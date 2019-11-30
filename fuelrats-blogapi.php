@@ -115,7 +115,7 @@ class FuelRatsEndpoint {
 			LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
 		{$filterSql}
 		GROUP BY p.ID
-ORDER BY p.`ID` DESC
+		ORDER BY p.post_date DESC
 		{$pageSql}
 		";
 
