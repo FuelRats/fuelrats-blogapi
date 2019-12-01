@@ -17,6 +17,23 @@ function write_debug( $object, $as_json = true ) {
 	var_dump( $object );
 	echo '<xmp>' . ob_get_clean() . '</xmp>';
 }
+
+function get_custom_excerpt( $content, $lengthLimit ) {
+	$shortContent = trim(preg_replace('/\\n/', ' ', strip_tags( $content )));
+
+	if (strlen($shortContent) > $lengthLimit) {
+		$breakpoint = min(array_filter(array(
+			strpos($shortContent, ".", $lengthLimit),
+			strpos($shortContent, "!", $lengthLimit),
+			strpos($shortContent, "?", $lengthLimit),
+		)));
+
+		$shortContent = substr($shortContent, 0, $breakpoint + 1) . ' [...]';
+	}
+
+	return $shortContent;
+}
+
 define( 'SHORTINIT', true );
 require_once '../../../wp-load.php';
 
@@ -36,84 +53,102 @@ class FuelRatsEndpoint {
 	}
 */
 
-	public function get_posts( $data ) {
+	public function get_posts( $queryData ) {
 		global $wpdb;
 
 
 		$page = 1;
-		$pageSize = 10;
-		if ( ! empty( $data['page'] ) && intval( $data['page'] ) != 0 ) {
-			$page = intval( $data['page'] );
+		$limit = 25;
+
+		if ( ! empty( $queryData['page'] ) && intval( $queryData['page'] ) != 0 ) {
+			$page = intval( $queryData['page'] );
 		}
 
-		if ( ! empty( $data['pagesize'] ) && intval( $data['pagesize'] ) != 0 ) {
-			$pageSize = intval( $data['pagesize'] );
+		if ( ! empty( $queryData['limit'] ) && intval( $queryData['limit'] ) != 0 ) {
+			$limit = intval( $queryData['limit'] );
 		}
 
-		$filterSql = '';
+		$offset = ( $page - 1 ) * $limit;
 
-		if ( ! empty( $data['category'] ) && intval( $data['category'] ) != 0 ) {
-			$filterSql .= ' AND t.term_id = ' . intval( $data['category'] );
+		$filterSql = "WHERE p.post_type = 'post' AND p.post_status = 'publish' AND p.post_password = ''";
+
+		if ( ! empty( $queryData['category'] ) && intval( $queryData['category'] ) != 0 ) {
+			$filterSql .= ' AND t.term_id = ' . intval( $queryData['category'] );
 		}
 
-		if ( ! empty( $data['author'] ) && intval( $data['author'] ) != 0 ) {
-			$filterSql .= ' AND p.post_author = ' . intval( $data['author'] );
+		if ( ! empty( $queryData['author'] ) && intval( $queryData['author'] ) != 0 ) {
+			$filterSql .= ' AND p.post_author = ' . intval( $queryData['author'] );
 		}
 
-		if ( ! empty( $data['id'] ) && intval( $data['id'] ) != 0 ) {
-			$filterSql .= ' AND p.ID = ' . intval( $data['id'] );
+		if ( ! empty( $queryData['id'] ) && intval( $queryData['id'] ) != 0 ) {
+			$filterSql .= ' AND p.ID = ' . intval( $queryData['id'] );
 		}
 
-		if ( ! empty( $data['slug'] ) ) {
-			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $data['slug'] );
+		if ( ! empty( $queryData['slug'] ) ) {
+			$filterSql .= $wpdb->prepare( ' AND p.post_name = %s', $queryData['slug'] );
 		}
 
-		$pageSql = ' LIMIT ' . ( ( $page - 1 ) * $pageSize ) . ', ' . $pageSize;
+		$pageSql = ' LIMIT ' . $offset . ', ' . $limit;
 
-		$sql = "SELECT COUNT(ID) FROM $wpdb->posts WHERE `post_type` = 'post' AND `post_status` = 'publish'";
-		$sql = "SELECT COUNT(DISTINCT p.ID)
-FROM {$wpdb->posts} p
-INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
-LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
-LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
-LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-WHERE p.`post_type` = 'post' AND p.`post_status` = 'publish'
-{$filterSql}
-";
-		$total_posts = $wpdb->get_var( $sql );
+		$sql = "SELECT
+			COUNT(DISTINCT p.ID)
+			FROM
+				{$wpdb->posts} p
+				INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
+				LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
+				LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
+				LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+			{$filterSql}
+			";
 
-$sql = "
-SELECT p.ID AS id, p.post_author AS author, p.post_date_gmt as date_gmt, p.post_title as title, p.post_content as `content`, p.post_name as slug,
-u.ID AS author_id, u.display_name AS author_name,
-GROUP_CONCAT(t.term_id SEPARATOR ';;') category,
-GROUP_CONCAT(t.term_id SEPARATOR ';;') category_ids,
-GROUP_CONCAT(t.name SEPARATOR ';;') category_names,
-GROUP_CONCAT(tt.description SEPARATOR ';;') category_descriptions
-FROM {$wpdb->posts} p
-INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
-LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
-LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
-LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-WHERE p.`post_type` = 'post' AND p.`post_status` = 'publish'
-{$filterSql}
-GROUP BY p.ID
-ORDER BY p.`ID` DESC
-{$pageSql}
-";
-		$data = $wpdb->get_results( $sql, ARRAY_A );
+		$total = intval($wpdb->get_var( $sql ));
+
+		$sql = "SELECT
+			p.ID AS id,
+			p.post_author,
+			p.post_content,
+			p.post_date_gmt,
+			p.post_excerpt,
+			p.post_name,
+			p.post_status,
+			p.post_title,
+			p.post_modified_gmt,
+			u.ID AS author_id,
+			u.display_name AS author_name,
+			GROUP_CONCAT(t.term_id SEPARATOR ';;') category,
+			GROUP_CONCAT(t.term_id SEPARATOR ';;') category_ids,
+			GROUP_CONCAT(t.name SEPARATOR ';;') category_names,
+			GROUP_CONCAT(tt.description SEPARATOR ';;') category_descriptions
+		FROM
+			{$wpdb->posts} p
+			INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
+			LEFT JOIN {$wpdb->term_relationships} trs ON p.ID = trs.object_id
+			LEFT JOIN {$wpdb->term_taxonomy} tt ON trs.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'category'
+			LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+		{$filterSql}
+		GROUP BY p.ID
+		ORDER BY p.post_date DESC
+		{$pageSql}
+		";
+
+		$postData = $wpdb->get_results( $sql, ARRAY_A );
+
 		return $this->get_jsonapi_format(
-			$data,
-			$total_posts,
+			$postData,
 			'posts',
-			array(
-				'date_gmt',
-				'title',
-				'content',
-				'slug',
-			),
+			function($post){
+				return array(
+					'slug' => $post['post_name'],
+					'createdAt' => $post['post_date_gmt'],
+					'updatedAt' => $post['post_modified_gmt'],
+					'title' => $post['post_title'],
+					'content' => wpautop( $post['post_content'] ),
+					'excerpt' => $post['post_excerpt'] ?: get_custom_excerpt( $post['post_content'], 300 ),
+				);
+			},
 			array(
 				array(
-					'author',
+					'post_author',
 					'authors',
 					'author_id',
 					array(
@@ -131,15 +166,19 @@ ORDER BY p.`ID` DESC
 					),
 					true,
 				),
+			),
+			array(
+				'count' => count($postData),
+				'limit' => $limit,
+				'offset' => $offset,
+				'total' => $total,
 			)
 		);
 	}
 
-	private function get_jsonapi_format( $data, $count, $type, $attributes = array(), $relationships = array() ) {
+	private function get_jsonapi_format( $data, $type, $get_attributes, $relationships = array(), $meta = array() ) {
 		$jsonApiResponse = new stdClass();
-		$jsonApiResponse->meta = array(
-			'total-pages' => ceil( round( $count / 10, 4 ) )
-		);
+		$jsonApiResponse->meta = $meta;
 		$jsonApiResponse->data = array();
 
 		$uniqueIncludes = array();
@@ -148,10 +187,7 @@ ORDER BY p.`ID` DESC
 			$jsondata = new stdClass();
 			$jsondata->type = $type;
 			$jsondata->id = $d['id'];
-			$jsondata->attributes = array();
-			foreach ( $attributes as $attr ) {
-				$jsondata->attributes[$attr] = $d[$attr];
-			}
+			$jsondata->attributes = $get_attributes($d);
 
 			$jsondata->relationships = array();
 			foreach ( $relationships as $relation ) {
